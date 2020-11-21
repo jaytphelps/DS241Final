@@ -1,0 +1,128 @@
+---
+title: "DSBikeshare"
+author: "Jason Phelps"
+date: "10/14/2020"
+output: html_document
+runtime: shiny
+---
+
+---
+title: "Clarkson Class Data"
+author: "Jason Phelps"
+date: "16 Sep 2020"
+output: html_notebook
+---
+
+The intention for this file is to conduct analysis on clarkson's enrollment data.
+## Load packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(readxl)
+library(skimr)
+library(summarytools)
+library(tidyr)
+library(lubridate)
+
+```
+Read .csv file and add in variables through 'r' not directly in excel
+
+```{r}
+dfa= read_excel("DS_bikeshare.xlsx") %>%
+clean_names()
+  
+```
+
+creating a second data frame to eliminate any useless entries into the data set
+```{r}
+dfb = dfa %>% filter(duration>0)
+
+```
+
+creating new columns in data set called duration (length of bike ride), hour_of_day, which is the numeric digit(s) of the started_at cell which is in date/time format. as well as day_of_week
+```{r}
+dfc= read_excel("DS_bikeshare.xlsx") %>%
+
+  clean_names() %>%
+  mutate(duration=as.numeric((ended_at-started_at)/60), hour_of_day=hour(started_at), day_of_week=wday(started_at,label = T))
+```
+
+
+```{r}
+dfb=dfa %>% filter(duration>0, )
+```
+
+plotting data in terms of duration 
+```{r}
+dfa %>% ggplot(aes(x=duration)) + geom_histogram(bins=1000) + facet_wrap(vars(weekday))
+```
+
+Looking at data plotted in terms of duration as it relates to time of day the bike ride began
+```{r}
+dfc %>% ggplot(aes(x=started_at, y=duration)) + geom_point()
+```
+
+```{r}
+dfe=dfa %>% filter(mday(started_at)==3) %>%
+slice_sample(n=100)
+```
+### Tidy data
+
+Separate column term2 into two variables
+```{r}
+dfa %>% 
+  filter(month(started_at)==8,month(ended_at)==8,mday(t)<=14) %>%
+  select(start=started_at,ended_at)
+```
+
+
+
+
+
+Creating a dataframe drf, which contains the rideable_type as well as beginning and ending time of ride
+
+```{r}
+dfr = dfb %>% 
+  filter(month(started_at)==8,month(ended_at)==8) %>%
+  select(rideable_type, start=started_at,end=ended_at) %>%
+  pivot_longer(start:end,
+names_to="type", values_to='t') %>% arrange(t) %>%
+  mutate(increment=case_when(
+    type=="start"~1,
+    type=="end"~ -1
+  )) %>%
+  group_by(rideable_type) %>%
+  mutate(riders=cumsum(increment))
+  
+```
+Creating Dataframe r1 which doesnt include rideable type and doesn't group by rideable type
+
+```{r}
+dfr1 = dfb %>% 
+  filter(month(started_at)==8,month(ended_at)==8) %>%
+  select( start=started_at,end=ended_at) %>%
+  pivot_longer(start:end,
+names_to="type", values_to='t') %>% arrange(t) %>%
+  mutate(increment=case_when(
+    type=="start"~1,
+    type=="end"~ -1
+  )) %>%
+  mutate(riders=cumsum(increment))
+  
+```
+
+How many riders (max) in any hour time interval
+
+```{r}
+dfrh=dfr1 %>% group_by(hour(t)) %>% 
+  summarise(max_riders=max(riders))
+```
+
+
+```{r}
+dfra=dfr1 %>% group_by(hour(t)) %>% 
+  summarise(max_riders=max(riders), average_riders=mean(riders))
+
+```
+
+
