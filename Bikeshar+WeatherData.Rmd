@@ -159,7 +159,7 @@ scatter.smooth(x=overall$pressure, y=overall$numberRiders, main="Humidity ~ Ride
 ```
 
 
-
+The above plots are generated in order to determine any statistical correlation, and strength of correlation. Given the results, it would appear that there is no strong correlation with any of the variables, for this month of August.
 
 
 
