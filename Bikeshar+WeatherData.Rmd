@@ -1,0 +1,165 @@
+---
+title: "Bikeshare Project"
+author: "Jason Phelps and Trevor Lebrecque"
+date: "13 Nov 2020" 
+output: html_notebook
+---
+
+The purpose of this analysis is to understand how weather averages for a day affect the amount of bikes that Capital Bikeshare rents out.
+
+To Start, lets prepare the workspace:
+
+## Preparing Workspace
+
+To start, we loaded the packages that we may or may not use throughout the project.
+```{r}
+library(tidyverse)
+library(janitor)
+library(readxl)
+library(skimr)
+library(summarytools)
+library(tidyr)
+library(ggplot2)
+library(lubridate)
+library(sp)
+library(sf)
+library(rgdal)
+```
+
+We had collected data from the bikeshare website as well as we found some data on the weather in DC. Each dataset shows the month of August in 2020. The weather data had the average of each metric for the day.
+
+```{r}
+dfa= read_excel("2020 Bikeshare.xlsx") %>% clean_names()
+weather = read_excel("WeatherData.xlsx") %>% clean_names()
+```
+
+
+## Tidy Data
+
+The next task is to make the data look the way we want it to for our analysis.
+
+This first chunk gets rid of Ride_ID and then filters out the "bad" data. In the data set, we had some rides with abnormally large duration as well as negative duration. In order to prevent these datapoints from affecting our analysis, we removed them as well as ride_id, a variable we don't need.
+
+```{r}
+dfb = dfa %>% select(-ride_id) %>% 
+  filter(duration_minutes > 0) %>% filter(duration_minutes < 1000)
+```
+
+This next chunk separates started at into day month year time. Since all data is in August of 2020, we will remove the Month and Year variables as well as all the other ones we don't need. Puts in dfd. The last task was to take the character variable day and make it into a numeric one.
+```{r}
+dfc = dfb %>% separate(started_at, into = c("day", "time"), sep = " ") %>% 
+  separate(day, into = c("yearstart","monthstart","day"))
+dfd <- dfc %>% select(day)
+dfe = as.numeric(dfd$day)
+dfd[,1] = dfe
+```
+
+For the purpose of our analysis, we need only the total number of riders for each particular day. Here we calculate that and store it in a dataframe called total_day_rider. Also make the day column into a numeric value
+```{r}
+total_day_rider = as.data.frame(table(dfd$day)) %>% rename(day = Var1, numberRiders = Freq)
+dff = as.numeric(total_day_rider$day)
+total_day_rider[,1] = dff
+```
+
+
+In the weather data, in order to allow for easy joining, we rename the variable aug to day and then join that dataframe with total_day_rider to create our overall dataset.
+```{r}
+weather = weather %>% rename(day = aug)
+overall = inner_join(total_day_rider,weather,by.x = day, by.y = day)
+```
+
+## Visualizing the Data
+```{r}
+linMod <-lm(data = overall, numberRiders~pressure)
+summary(linMod)
+```
+```{r}
+linMod <-lm(data = overall, numberRiders~temp + humidity)
+summary(linMod)
+```
+```{r}
+linMod <-lm(data = overall, numberRiders~temp + precipitation)
+summary(linMod)
+```
+
+As is made clear by each calculated p-value, there appears to be nothing statistically significant for day to day difference in the number of riders/bikeusers in the month of august. Even though is proved to be statistically insignifcant, it would appear that the two variables with the greatest impact on bike use probability day by day in the month of august is the temperature and humidity.
+
+```{r}
+linMod <-lm(data = overall, numberRiders~temp + precipitation + wind)
+summary(linMod)
+```
+
+linMod <-lm(data = overall, numberRiders~temp + precipitation + wind)
+summary(linMod)
+
+```{r visualise, warning=FALSE}
+ggplot(data = overall,
+       mapping = aes(x = temp, 
+                     y = numberRiders, 
+                     color = numberRiders, 
+                     label = line)) +
+  # represent cumulative cases with lines
+  geom_line(size = 0.7, alpha = 0.8) +
+  # add points to line endings
+  geom_point(data = overall %>% filter(temp, numberRiders)) +
+  # add country labels, nudged above the lines
+  geom_label_repel(nudge_y = 1, direction = "y", hjust = 1) + 
+  # turn off legend
+  guides(color = FALSE) +
+  # use pretty colors
+  scale_color_viridis_d() +
+  # better formatting for y-axis
+  scale_y_continuous(labels = label_comma()) +
+  # use minimal theme
+  theme_minimal() +
+  # customize labels
+  labs(
+    x = "temperature",
+    y = "number of Riders",
+    title = "Number of Riders Over Temperature Change",
+    subtitle = glue("Data as of", as_of_date_formatted, .sep = " "),
+    caption = ""
+  )
+```
+
+```{r}
+#qplot(x, y, data=, color=, shape=, size=, alpha=, geom=, method=, formula=, facets=, xlim=, ylim= xlab=, ylab=, main=, sub=)
+qplot(temp, numberRiders, data= overall, color=numberRiders, size=0.7, alpha=0.8)
+```
+
+
+```{r}
+cor(overall$temp, overall$numberRiders)
+scatter.smooth(x=overall$temp, y=overall$numberRiders, main="Temp ~ Riders")
+```
+
+```{r}
+cor(overall$humidity, overall$numberRiders)
+scatter.smooth(x=overall$humidity, y=overall$numberRiders, main="Humidity ~ Riders")
+```
+
+```{r}
+cor(overall$precipitation, overall$numberRiders)
+scatter.smooth(x=overall$precipitation, y=overall$numberRiders, main="Precip ~ Riders")
+```
+
+```{r}
+cor(overall$wind, overall$numberRiders)
+scatter.smooth(x=overall$wind, y=overall$numberRiders, main="Wind ~ Riders")
+```
+
+```{r}
+cor(overall$day, overall$numberRiders)
+scatter.smooth(x=overall$day, y=overall$numberRiders, main="Day ~ Riders")
+```
+
+```{r}
+cor(overall$pressure, overall$numberRiders)
+scatter.smooth(x=overall$pressure, y=overall$numberRiders, main="Humidity ~ Riders")
+```
+
+
+The above plots are generated in order to determine any statistical correlation, and strength of correlation. Given the results, it would appear that there is no strong correlation with any of the variables, for this month of August.
+
+
+
